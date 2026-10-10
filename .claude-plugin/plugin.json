@@ -9,6 +9,7 @@
   "repository": "https://github.com/seps13/cursor-plugins",
   "license": "MIT",
   "skills": [
+    "./claude-code/setup-pstack",
     "./pstack/skills/tdd",
     "./pstack/skills/architect",
     "./pstack/skills/arena",
