@@ -33,6 +33,8 @@
     "./pstack/skills/principle-subtract-before-you-add",
     "./pstack/skills/principle-fix-root-causes",
     "./pstack/skills/principle-redesign-from-first-principles",
+    "./pstack/skills/principle-type-system-discipline",
+    "./pstack/skills/principle-boundary-discipline",
     "./cursor-team-kit/skills/deslop"
   ],
   "agents": [
