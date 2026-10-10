@@ -1,0 +1,41 @@
+{
+  "name": "pstack",
+  "version": "0.15.15",
+  "description": "Selected pstack skills (Lauren Tan) plus deslop from cursor-team-kit, packaged for Claude Code from a fork of cursor/plugins.",
+  "author": {
+    "name": "Lauren Tan"
+  },
+  "homepage": "https://github.com/cursor/plugins/tree/main/pstack",
+  "repository": "https://github.com/seps13/cursor-plugins",
+  "license": "MIT",
+  "skills": [
+    "./pstack/skills/tdd",
+    "./pstack/skills/architect",
+    "./pstack/skills/arena",
+    "./pstack/skills/interrogate",
+    "./pstack/skills/swarm",
+    "./pstack/skills/how",
+    "./pstack/skills/why",
+    "./pstack/skills/create-verification-skill",
+    "./pstack/skills/maintain-verification-skill",
+    "./pstack/skills/benchmark-checklist",
+    "./pstack/skills/blast-radius",
+    "./pstack/skills/no-comments",
+    "./pstack/skills/unslop",
+    "./pstack/skills/correct",
+    "./pstack/skills/reflect",
+    "./pstack/skills/show-me-your-work",
+    "./pstack/skills/principle-minimize-reader-load",
+    "./pstack/skills/principle-guard-the-context-window",
+    "./pstack/skills/principle-encode-lessons-in-structure",
+    "./pstack/skills/principle-prove-it-works",
+    "./pstack/skills/principle-explain-the-number",
+    "./pstack/skills/principle-subtract-before-you-add",
+    "./pstack/skills/principle-fix-root-causes",
+    "./pstack/skills/principle-redesign-from-first-principles",
+    "./cursor-team-kit/skills/deslop"
+  ],
+  "agents": [
+    "./pstack/agents/comment-sicko.md"
+  ]
+}
