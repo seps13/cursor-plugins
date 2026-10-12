@@ -26,6 +26,8 @@
     "./pstack/skills/correct",
     "./pstack/skills/reflect",
     "./pstack/skills/show-me-your-work",
+    "./pstack/skills/teach",
+    "./pstack/skills/recall",
     "./pstack/skills/principle-minimize-reader-load",
     "./pstack/skills/principle-guard-the-context-window",
     "./pstack/skills/principle-encode-lessons-in-structure",
