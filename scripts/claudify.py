@@ -45,6 +45,9 @@ NEW_ROLE_RULE_TAIL = (
     "default if the file or the line is missing. Leave both unset when the value is `inherit`."
 )
 
+# Called by other skills (blast-radius, no-comments, architect, teach, recall, dev-workflow:prototype).
+MODEL_INVOKED = ("how", "why", "unslop", "architect", "arena", "benchmark-checklist")
+
 # (path relative to pstack/skills, old, new, expected count). Literal unless old is re.Pattern.
 EDITS: list[tuple[str, str | re.Pattern[str], str, int]] = [
     # how
@@ -176,6 +179,23 @@ EDITS: list[tuple[str, str | re.Pattern[str], str, int]] = [
         "across `~/.claude/projects/*/`.",
         1,
     ),
+    # recall
+    (
+        "recall/SKILL.md",
+        "Transcripts live at `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/<uuid>.jsonl`, "
+        "where `<slug>` is the workspace path with the leading slash dropped and each \"/\" turned "
+        "into \"-\" (so `/Users/you/proj` becomes `Users-you-proj`).",
+        f"Transcripts live at `<uuid>.jsonl` under {TRANSCRIPT_DIR}. Subagent transcripts sit "
+        "under `<uuid>/subagents/`.",
+        1,
+    ),
+    (
+        "recall/SKILL.md",
+        "One specific prior chat to resume is the `session-pickup` playbook, not this. Turning "
+        "habits into a durable skill is `automate-me`.",
+        "Resuming one specific prior chat is `claude --resume`, not this.",
+        1,
+    ),
     # arena
     (
         "arena/SKILL.md",
@@ -277,6 +297,11 @@ EDITS: list[tuple[str, str | re.Pattern[str], str, int]] = [
     # verification skills
     ("create-verification-skill/SKILL.md", "`.cursor/skills/verify-<app>/", "`.claude/skills/verify-<app>/", 3),
     ("maintain-verification-skill/SKILL.md", "`.cursor/skills/verify-*/`", "`.claude/skills/verify-*/`", 1),
+    # Skills other skills invoke must be visible to the Skill tool.
+    *[
+        (f"{name}/SKILL.md", "\ndisable-model-invocation: true\n", "\n", 1)
+        for name in MODEL_INVOKED
+    ],
 ]
 
 # Must not survive anywhere in the selected skills.
