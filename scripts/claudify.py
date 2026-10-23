@@ -20,6 +20,7 @@ Usage: python3 scripts/claudify.py [--check]
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -363,7 +364,15 @@ TERMS = {
     "Cursor-only features": r"Bugbot|Cursor [Aa]utomation|cursor\.(sh|com)/automations|[Cc]loud [Aa]gent|built-in PR tool",
     "Cursor": r"\bCursor\b|\.cursor/|mcps/|-xhigh|\bcreate-skill\b",
     "poteto-mode": r"poteto-mode",
+    "unlinked principle": r"\*\*(?:principle-)?[a-z-]+\*\*(?: and \*\*[a-z-]+\*\*)? principle skills?|\*\*principle-[a-z-]+\*\*",
 }
+
+# Principle skills stay out of the model's skill list, so a reference to one becomes a link the agent can Read.
+# "the **X** principle skill", "**X** and **Y** principle skills", or "**principle-X**".
+PRINCIPLE_REF = re.compile(
+    r"\*\*(?P<a>[a-z-]+)\*\*(?: and \*\*(?P<b>[a-z-]+)\*\*)? principle (?P<skills>skills?)"
+    r"|\*\*principle-(?P<c>[a-z-]+)\*\*"
+)
 FORBIDDEN = re.compile("|".join(f"(?:{p})" for p in TERMS.values()))
 
 # (path relative to pstack/skills, substring): example quotes in prompts, not instructions.
@@ -387,6 +396,22 @@ def apply(text: str, old: str | re.Pattern[str], new: str, expected: int, label:
     sys.exit(f"{label}: expected {expected} match(es), found {count}")
 
 
+def link_principles(path: Path, text: str) -> str:
+    def link(name: str, label: str) -> str:
+        target = SKILLS / f"principle-{name}" / "SKILL.md"
+        if not target.exists():
+            sys.exit(f"{path.relative_to(ROOT)}: no skill principle-{name}")
+        return f"[{label}]({os.path.relpath(target, path.parent)})"
+
+    def sub(m: re.Match[str]) -> str:
+        if m["c"]:
+            return link(m["c"], f"principle-{m['c']}")
+        names = [n for n in (m["a"], m["b"]) if n]
+        return " and ".join(link(n, n) for n in names) + (" principles" if len(names) > 1 else " principle")
+
+    return PRINCIPLE_REF.sub(sub, text)
+
+
 def allowed(path: Path, line: str) -> bool:
     rel = path.relative_to(SKILLS).as_posix() if path.is_relative_to(SKILLS) else ""
     return any(rel == p and s in line for p, s in ALLOWED)
@@ -400,6 +425,12 @@ def main() -> None:
         files.setdefault(path, path.read_text())
         files[path] = apply(files[path], old, new, expected, rel)
 
+    manifest = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())
+    for skill in manifest["skills"]:
+        for f in (ROOT / skill).rglob("*.md"):
+            if f.is_relative_to(SKILLS):
+                files[f] = link_principles(f, files.get(f, f.read_text()))
+
     changed = [p for p, t in files.items() if p.read_text() != t]
     if check:
         if changed:
@@ -408,7 +439,6 @@ def main() -> None:
         for path in changed:
             path.write_text(files[path])
 
-    manifest = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())
     leftovers = []
     for skill in manifest["skills"]:
         for f in (ROOT / skill).rglob("*.md"):
