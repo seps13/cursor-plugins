@@ -1,14 +1,13 @@
 ---
 name: how
 description: "Use for \"how does X work\", code walkthroughs before changing something, and placement / ownership / layering questions (\"where should this live\", \"which package owns this\", \"is this the right layer\"). Explains subsystem architecture, runtime flow, onboarding mental models. Use why for motivation."
-disable-model-invocation: true
 ---
 
 # How
 
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-Every spawn is a Task subagent with `subagent_type: generalPurpose` and `readonly: true`. Explorers use the `how explorer` line in the `pstack-models.mdc` rule (default `grok-4.7-xhigh-fast`), and every explainer uses the `how explainer` line (default `claude-opus-5-5-xhigh`). Set `model` to that line's value, or to the default if the rule or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the Task tool rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+Every explorer is an Agent subagent with `subagent_type: "Explore"` and the `how explorer` line in `~/.claude/rules/pstack-models.md` (default `haiku/high`). Every explainer is a `general-purpose` subagent told not to modify files, with the `how explainer` line (default `opus/medium`). Claude Code loads that file into every session, so read it only if its lines are not in context. A value is `<model>/<effort>`, e.g. `sonnet/high`: pass them as the Agent tool's `model` and `effort`. Use the default if the file or the line is missing. Leave both unset when the value is `inherit`. Raise or lower a subagent's `effort` to fit the job, but keep its `model`.
 
 ## 1. Assess complexity
 
