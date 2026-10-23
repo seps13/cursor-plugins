@@ -3,8 +3,12 @@
 
 Replaces Cursor-isms (Task tool, generalPurpose, readonly, cloud workers,
 ~/.cursor paths, grok/xhigh model slugs) with Claude Code equivalents, and
-points model lookup at ~/.claude/pstack-models.md, written by the
+points model lookup at ~/.claude/rules/pstack-models.md, written by the
 Claude Code setup-pstack in claude-code/setup-pstack/.
+
+Upstream's pstack/docs/harness/claude-code.md is the spec for each mapping,
+and TERMS mirrors upstream's scripts/generate-pstack-harness-trees.mjs. A new
+upstream term lands there first, so a missed rewrite fails the leftover scan.
 
 Every replacement asserts its expected match count, so an upstream wording
 change fails loudly instead of silently leaving a Cursor-ism behind.
@@ -23,11 +27,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SKILLS = ROOT / "pstack" / "skills"
 
-CONFIG = "`~/.claude/pstack-models.md`"
-VALUE_FORMAT = (
-    "A value is `<model>/<effort>`, e.g. `sonnet/high`: pass them as the Agent tool's "
-    "`model` and `effort`."
-)
+CONFIG = "`~/.claude/rules/pstack-models.md`"
+LOADED = "Claude Code loads that file into every session, so read it only if its lines are not in context."
+VALUE_FORMAT = "A value is `<model>/<effort>`, e.g. `sonnet/high`: pass them as the Agent tool's `model` and `effort`."
 TRANSCRIPT_DIR = (
     "`~/.claude/projects/<slug>/`, where `<slug>` is the absolute working directory "
     "with every non-alphanumeric character replaced by `-`"
@@ -41,39 +43,75 @@ OLD_ROLE_RULE_TAIL = (
     "from its error message."
 )
 NEW_ROLE_RULE_TAIL = (
-    f"a role line in {CONFIG} and a default. Read that file once. {VALUE_FORMAT} Use the "
-    "default if the file or the line is missing. Leave both unset when the value is `inherit`."
+    f"a role line in {CONFIG} and a default. {LOADED} {VALUE_FORMAT} Use the default if the "
+    "file or the line is missing. Leave both unset when the value is `inherit`."
 )
 
-# Called by other skills (blast-radius, no-comments, architect, teach, recall, dev-workflow:prototype).
-MODEL_INVOKED = ("how", "why", "unslop", "architect", "arena", "benchmark-checklist")
+# poteto-mode isn't selected; this inlines what its Subagents section says.
+OLD_EFFORT = (
+    " Pick each subagent's reasoning level and fast or standard speed for the job, per the "
+    "Subagents section of the **poteto-mode** skill."
+)
+NEW_EFFORT = " Raise or lower a subagent's `effort` to fit the job, but keep its `model`."
+EFFORT_USERS = (
+    "arena",
+    "interrogate",
+    "why",
+    "how",
+    "reflect",
+    "swarm",
+    "show-me-your-work",
+    "no-comments",
+    "recall",
+)
+
+OLD_ROUTING = (
+    "(under `.cursor/skills/`, `~/.cursor/skills/`, or `~/.cursor/plugins/`), a `Task` prompt "
+    "naming its path, or a tool call (Shell, Grep, MCP, etc.)"
+)
+NEW_ROUTING = (
+    "(under `.claude/skills/`, `~/.claude/skills/`, or `~/.claude/plugins/`), an Agent prompt "
+    "naming its path, or a tool call (Bash, Grep, MCP, etc.)"
+)
+
+# Called by other skills (blast-radius, no-comments, architect, teach, recall, dev-workflow:prototype),
+# or wanted on demand (tdd).
+MODEL_INVOKED = ("how", "why", "unslop", "architect", "arena", "benchmark-checklist", "tdd")
 
 # (path relative to pstack/skills, old, new, expected count). Literal unless old is re.Pattern.
 EDITS: list[tuple[str, str | re.Pattern[str], str, int]] = [
+    *[(f"{name}/SKILL.md", OLD_EFFORT, NEW_EFFORT, 1) for name in EFFORT_USERS],
+    *[(f"{name}/SKILL.md", "Open a todolist", "Open a TodoWrite list", 1) for name in ("architect", "arena", "swarm")],
     # how
-    ("how/SKILL.md", OLD_ROLE_RULE_TAIL, NEW_ROLE_RULE_TAIL, 1),
     (
         "how/SKILL.md",
-        "- `subagent_type`: `generalPurpose`\n"
-        "- `model`: the `how explorer` line, default `grok-4.7-xhigh-fast`\n"
-        "- `readonly`: `true`",
-        "- `subagent_type`: `Explore`\n"
-        "- `model`: the `how explorer` line, default `haiku/high`",
+        "Every spawn is a Task subagent with `subagent_type: generalPurpose` and `readonly: true`. "
+        "Explorers use the `how explorer` line in the `pstack-models.mdc` rule (default "
+        "`grok-4.7-xhigh-fast`), and every explainer uses the `how explainer` line (default "
+        "`claude-opus-5-5-xhigh`). Set `model` to that line's value, or to the default if the rule "
+        "or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. "
+        "If the Task tool rejects a slug, use the default and say so. If it rejects the default, "
+        "use the closest valid slug of the same family from its error message.",
+        'Every explorer is an Agent subagent with `subagent_type: "Explore"` and the `how '
+        f"explorer` line in {CONFIG} (default `haiku/high`). Every explainer is a "
+        "`general-purpose` subagent told not to modify files, with the `how explainer` line "
+        f"(default `opus/medium`). {LOADED} {VALUE_FORMAT} Use the default if the file or the "
+        "line is missing. Leave both unset when the value is `inherit`.",
         1,
     ),
-    (
-        "how/SKILL.md",
-        "- `subagent_type`: `generalPurpose`\n"
-        "- `model`: the `how explainer` line, default `claude-opus-5-5-xhigh`\n"
-        "- `readonly`: `true`",
-        "- `subagent_type`: `general-purpose`\n"
-        "- `model`: the `how explainer` line, default `opus/medium`\n"
-        "- Read-only: tell it not to modify files",
-        2,
-    ),
-    ("how/SKILL.md", "one Task subagent", "one subagent", 2),
     # why
     ("why/SKILL.md", OLD_ROLE_RULE_TAIL, NEW_ROLE_RULE_TAIL, 1),
+    (
+        "why/SKILL.md",
+        "Every spawn is `generalPurpose` with `readonly: false` (agent mode). **Do not use "
+        "readonly/Ask mode.** It strips MCP access, which disables the MCP-backed investigators "
+        "and the synthesizer's citation spot-checks. Investigators still shouldn't write anything.",
+        'Every spawn is `subagent_type: "general-purpose"`, which keeps the session\'s MCP '
+        "servers that the MCP-backed investigators and the synthesizer's citation spot-checks "
+        "need. Do not use `Explore`. Investigators still shouldn't write anything, so say so in "
+        "the brief.",
+        1,
+    ),
     (
         "why/SKILL.md",
         "list the available MCPs from the Cursor environment. Use the available-tools map when "
@@ -84,90 +122,77 @@ EDITS: list[tuple[str, str | re.Pattern[str], str, int]] = [
     ),
     (
         "why/SKILL.md",
-        "- `subagent_type`: `generalPurpose`\n"
-        "- `model`: the `why investigators` line, default `grok-4.7-xhigh-fast`\n"
-        "- `readonly`: `false` (agent mode). **Do not use readonly/Ask mode.** It strips MCP "
-        "access, which disables MCP-backed investigators entirely. Investigators still shouldn't "
-        "write anything.",
-        "- `subagent_type`: `general-purpose`\n"
-        "- `model`: the `why investigators` line, default `haiku/high`\n"
-        "- Investigators shouldn't write anything. Say so in the prompt.",
+        "`why investigators` line, default `grok-4.7-xhigh-fast`",
+        "`why investigators` line, default `haiku/high`",
         1,
     ),
     (
         "why/SKILL.md",
-        "- `subagent_type`: `generalPurpose`\n"
-        "- `model`: the `why synthesizer` line, default `claude-opus-5-5-xhigh`\n"
-        "- `readonly`: `false` (agent mode). The synthesizer's quality check spot-verifies "
-        "citations, which can require MCP access. Readonly/Ask mode strips MCPs and defeats that.",
-        "- `subagent_type`: `general-purpose`\n"
-        "- `model`: the `why synthesizer` line, default `opus/medium`",
+        "`why synthesizer` line, default `claude-opus-5-5-xhigh`",
+        "`why synthesizer` line, default `opus/medium`",
         1,
     ),
     # reflect
     ("reflect/SKILL.md", OLD_ROLE_RULE_TAIL, NEW_ROLE_RULE_TAIL, 1),
     (
         "reflect/SKILL.md",
-        "The system prompt names the active workspace's `agent-transcripts/` directory. Use that "
-        "path. Do not glob across `~/.cursor/projects/*/`.",
-        f"Claude Code stores it under {TRANSCRIPT_DIR}. Call that directory `<agent-transcripts>`. "
-        "Do not glob across `~/.claude/projects/*/`.",
+        "find this conversation's transcript in the `agent-transcripts/` directory the system "
+        "prompt names. Do not glob across `~/.cursor/projects/*/`.",
+        f"find this conversation's transcript in {TRANSCRIPT_DIR}. Call that directory "
+        "`<transcripts>`. Do not glob across `~/.claude/projects/*/`.",
         1,
     ),
     (
         "reflect/SKILL.md",
-        "Three transcript layouts: legacy flat (`<id>.jsonl`), current nested (`<id>/<id>.jsonl`), "
-        "and subagent (`<parent>/subagents/<child>.jsonl`).",
-        "Two transcript layouts: session (`<id>.jsonl`) and subagent "
-        "(`<id>/subagents/<child>.jsonl`).",
+        "ls -t <agent-transcripts>/*.jsonl <agent-transcripts>/*/*.jsonl <agent-transcripts>/*/subagents/*.jsonl",
+        "ls -t <transcripts>/*.jsonl <transcripts>/*/subagents/*.jsonl",
         1,
     ),
     (
         "reflect/SKILL.md",
-        "read the first JSONL line and check that `message.content[0].text` contains",
-        "find the first line with `\"type\": \"user\"` and check that its `message.content` "
-        "contains",
+        "That covers the legacy flat (`<id>.jsonl`), current nested (`<id>/<id>.jsonl`), and "
+        "subagent (`<parent>/subagents/<child>.jsonl`) layouts. For each candidate, read the first "
+        "JSONL line. Take the file whose `message.content[0].text` contains",
+        "That covers the session (`<id>.jsonl`) and subagent (`<id>/subagents/<child>.jsonl`) "
+        'layouts. For each candidate, find the first line with `"type": "user"`. Take the file '
+        "whose `message.content` contains",
         1,
     ),
     (
         "reflect/SKILL.md",
-        "One message, three `Task` calls, `subagent_type: generalPurpose`, with `model` set as "
-        "below, agent mode (`readonly: false`).",
-        "One message, three Agent calls, `subagent_type: general-purpose`, with `model` and "
-        "`effort` set as below.",
+        "One message, three `Task` calls, `subagent_type: generalPurpose`, agent mode (`readonly: "
+        "false`). Reviewers need MCP access to look up the tickets, chat threads, and observability "
+        "traces the transcript references, and readonly strips MCPs.",
+        'One message, three Agent calls, `subagent_type: "general-purpose"`. Reviewers need MCP '
+        "access to look up the tickets, chat threads, and observability traces the transcript "
+        "references, which `general-purpose` keeps.",
         1,
     ),
-    ("reflect/SKILL.md", " Readonly strips MCPs.", "", 2),
     ("reflect/SKILL.md", "in the `Task` response body", "in the Agent result", 1),
     (
         "reflect/SKILL.md",
-        "One `Task` call, `subagent_type: generalPurpose`, with `model` from the",
-        "One Agent call, `subagent_type: general-purpose`, with `model` and `effort` from the",
+        "One `Task` call, `subagent_type: generalPurpose`, `model` from the",
+        'One Agent call, `subagent_type: "general-purpose"`, `model` and `effort` from the',
         1,
     ),
-    ("reflect/SKILL.md", ", agent mode (`readonly: false`).", ".", 1),
+    (
+        "reflect/SKILL.md",
+        ", agent mode (`readonly: false`). It spot-verifies citations through MCP, and readonly strips MCPs.",
+        ". It spot-verifies citations through MCP, which `general-purpose` keeps.",
+        1,
+    ),
     ("reflect/SKILL.md", "`claude-opus-5-5-xhigh`", "`opus/medium`", 3),
     ("reflect/SKILL.md", "`grok-4.7-xhigh-fast`", "`sonnet/medium`", 1),
     (
         "reflect/SKILL.md",
-        "hand to Cursor's built-in `create-skill` skill and run its draft / test / iterate loop.",
-        "hand to the `skill-creator` skill if installed and run its draft / test / iterate loop. "
-        "Otherwise edit directly.",
+        "hand to Cursor's built-in `create-skill` skill and run",
+        "hand to the `skill-creator` skill (edit directly if it isn't installed) and run",
         1,
     ),
+    ("reflect/SKILL.md", re.compile(r"\bcreate-skill\b"), "skill-creator", 3),
+    ("reflect/references/synthesizer.md", re.compile(r"\bcreate-skill\b"), "skill-creator", 3),
     *[
-        (
-            f"reflect/references/{name}.md",
-            "(workspace `.cursor/skills/`, user-level `~/.cursor/skills/`, or plugin-installed "
-            "paths under `~/.cursor/plugins/`)",
-            "(project `.claude/skills/`, user-level `~/.claude/skills/`, or plugin-installed "
-            "paths under `~/.claude/plugins/`)",
-            1,
-        )
-        for name in ("judgment-reviewer", "tooling-reviewer", "divergent-reviewer")
-    ],
-    *[
-        (f"reflect/references/{name}.md", "- `Task` prompts", "- Agent prompts", 1)
+        (f"reflect/references/{name}.md", OLD_ROUTING, NEW_ROUTING, 1)
         for name in ("judgment-reviewer", "tooling-reviewer", "divergent-reviewer")
     ],
     # show-me-your-work
@@ -183,8 +208,8 @@ EDITS: list[tuple[str, str | re.Pattern[str], str, int]] = [
     (
         "recall/SKILL.md",
         "Transcripts live at `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/<uuid>.jsonl`, "
-        "where `<slug>` is the workspace path with the leading slash dropped and each \"/\" turned "
-        "into \"-\" (so `/Users/you/proj` becomes `Users-you-proj`).",
+        'where `<slug>` is the workspace path with the leading slash dropped and each "/" turned '
+        'into "-" (so `/Users/you/proj` becomes `Users-you-proj`).',
         f"Transcripts live at `<uuid>.jsonl` under {TRANSCRIPT_DIR}. Subagent transcripts sit "
         "under `<uuid>/subagents/`.",
         1,
@@ -203,14 +228,16 @@ EDITS: list[tuple[str, str | re.Pattern[str], str, int]] = [
         "line is missing, default to one each on `claude-opus-5-5-xhigh` and `grok-4.7-xhigh-fast`. "
         "An `auto` or `inherit-parent` entry in this line or the cross-judge line means the parent "
         "model, so omit `model` for it. If the Task tool rejects a configured entry, run that seat "
-        "on its family's default and say so. Families go by prefix: `claude-*` and `grok-*`. With "
-        "no family match, use `claude-opus-5-5-xhigh`. If it rejects a default, use the closest "
-        "valid slug of the same family from its error message.",
-        f"Use the `arena runners` line in {CONFIG}. If the file or that line is missing, default "
-        f"to one each on `opus/medium` and `sonnet/high`. {VALUE_FORMAT} An `inherit` entry in "
-        "this line or the cross-judge line means the parent model, so omit both for it.",
+        "on its family's default and say so. Families go by prefix: `claude-*`, and `grok-*` with "
+        "`cursor-grok-*` and `composer-*`. A refused `composer-*` entry runs on "
+        "`grok-4.7-xhigh-fast`. With no family match, use `claude-opus-5-5-xhigh`. If it rejects a "
+        "default, use the closest valid slug of the same family from its error message.",
+        f"Use the `arena runners` line in {CONFIG}. {LOADED} If the file or that line is missing, "
+        f"default to one each on `opus/medium` and `sonnet/high`. {VALUE_FORMAT} An `inherit` "
+        "entry in this line or the cross-judge line means the parent model, so omit both for it.",
         1,
     ),
+    ("arena/SKILL.md", "in one message with `run_in_background: true`, each with", "in one message, each with", 1),
     (
         "arena/SKILL.md",
         "line in `~/.cursor/rules/pstack-models.mdc`. If the rule or that line is missing, choose "
@@ -234,26 +261,22 @@ EDITS: list[tuple[str, str | re.Pattern[str], str, int]] = [
     # interrogate
     (
         "interrogate/SKILL.md",
-        "using the Task tool. Use the `interrogate reviewers` line in "
-        "`~/.cursor/rules/pstack-models.mdc`",
-        f"using the Agent tool. Use the `interrogate reviewers` line in {CONFIG}",
+        "with the Task tool, one per entry on the `interrogate reviewers` line in `~/.cursor/rules/pstack-models.mdc`,",
+        f"with the Agent tool, one per entry on the `interrogate reviewers` line in {CONFIG},",
         1,
     ),
-    ("interrogate/SKILL.md", "If the rule or that line is missing", "If the file or that line is missing", 1),
+    ("interrogate/SKILL.md", "If the rule or that line is missing", f"{LOADED} If the file or that line is missing", 1),
     ("interrogate/SKILL.md", "| `claude-opus-5-5-xhigh` |", "| `opus/medium` |", 1),
     ("interrogate/SKILL.md", "| `grok-4.7-xhigh-fast` |", "| `sonnet/high` |", 1),
     (
         "interrogate/SKILL.md",
-        "- `subagent_type`: `generalPurpose`\n"
-        "- `model`: the configured `interrogate reviewers` entry, or the table default with no "
-        "configured line. For an `auto` or `inherit-parent` entry, omit `model` so that reviewer "
-        "runs on the parent model.\n"
-        "- `readonly`: `true`",
-        "- `subagent_type`: `general-purpose`\n"
-        "- `model` and `effort`: the configured `interrogate reviewers` entry (`<model>/<effort>`), "
-        "or the table default with no configured line. For an `inherit` entry, omit both so that "
-        "reviewer runs on the parent model.\n"
-        "- Read-only: tell it not to modify files",
+        "Each reviewer gets `subagent_type: generalPurpose`, `readonly: true`, and `model` set to "
+        "its configured entry, or its table default when there is no configured line. Omit `model` "
+        "for an `auto` or `inherit-parent` entry, so that reviewer runs on the parent model.",
+        'Each reviewer gets `subagent_type: "general-purpose"`, a brief that says not to modify '
+        "files, and `model` and `effort` from its configured entry, or its table default when "
+        f"there is no configured line. {VALUE_FORMAT} Omit both for an `inherit` entry, so that "
+        "reviewer runs on the parent model.",
         1,
     ),
     (
@@ -263,28 +286,26 @@ EDITS: list[tuple[str, str | re.Pattern[str], str, int]] = [
         1,
     ),
     # swarm
-    ("swarm/SKILL.md", "N parallel cloud workers", "N parallel workers", 1),
-    ("swarm/SKILL.md", "not the cloud concurrency limit", "not a concurrency limit", 1),
     (
         "swarm/SKILL.md",
         "line in `~/.cursor/rules/pstack-models.mdc`. If the rule or that line is missing, use "
         "`grok-4.7-xhigh-fast`. For `auto` or `inherit-parent`, omit `model` so the workers run on "
         "the parent model. If the Task tool rejects a slug, use the default and say so. If it "
         "rejects the default, use the closest valid slug of the same family from its error message.",
-        f"line in {CONFIG}. If the file or that line is missing, use `sonnet/medium`. "
+        f"line in {CONFIG}. {LOADED} If the file or that line is missing, use `sonnet/medium`. "
         f"{VALUE_FORMAT} For `inherit`, omit both so the workers run on the parent model.",
         1,
     ),
     (
         "swarm/SKILL.md",
         "Spawn all N workers in one message with `subagent_type: generalPurpose`, "
-        "`environment: \"cloud\"`, `run_in_background: true`, and the step 4 model, left unset for "
-        "`auto` or `inherit-parent`. Use `environment: \"local\"` only when the worker needs access "
+        '`environment: "cloud"`, `run_in_background: true`, and the step 4 model, left unset for '
+        '`auto` or `inherit-parent`. Use `environment: "local"` only when the worker needs access '
         "to something on the user's computer.",
-        "Spawn all N workers in one message with `subagent_type: general-purpose`, "
-        "`isolation: \"worktree\"` when they write, `run_in_background: true`, and the step 4 "
-        "model and effort, left unset for `inherit`. Use `isolation: \"remote\"` instead only when "
-        "cloud sessions are available and the worker needs nothing on the user's computer.",
+        'Spawn all N workers in one message with `subagent_type: "general-purpose"`, '
+        '`isolation: "worktree"` when they write, and the step 4 model and effort, left unset '
+        'for `inherit`. Use `isolation: "remote"` instead only when cloud sessions are available '
+        "and the worker needs nothing on the user's computer.",
         1,
     ),
     (
@@ -294,20 +315,61 @@ EDITS: list[tuple[str, str | re.Pattern[str], str, int]] = [
         "worker check it out first.",
         1,
     ),
+    # no-comments
+    (
+        "no-comments/SKILL.md",
+        'Spawn `Task` with `subagent_type: "comment-sicko"`.',
+        'Spawn an Agent with `subagent_type: "pstack:comment-sicko"`.',
+        1,
+    ),
     # verification skills
     ("create-verification-skill/SKILL.md", "`.cursor/skills/verify-<app>/", "`.claude/skills/verify-<app>/", 3),
     ("maintain-verification-skill/SKILL.md", "`.cursor/skills/verify-*/`", "`.claude/skills/verify-*/`", 1),
+    # principles
+    (
+        "principle-type-system-discipline/SKILL.md",
+        "For TypeScript syntax, see the `typescript-best-practices` skill.",
+        "For language syntax, see that language's best-practices skill, such as `dev-workflow:python-best-practices`.",
+        1,
+    ),
     # Skills other skills invoke must be visible to the Skill tool.
-    *[
-        (f"{name}/SKILL.md", "\ndisable-model-invocation: true\n", "\n", 1)
-        for name in MODEL_INVOKED
-    ],
+    *[(f"{name}/SKILL.md", "\ndisable-model-invocation: true\n", "\n", 1) for name in MODEL_INVOKED],
 ]
 
-# Must not survive anywhere in the selected skills.
-FORBIDDEN = re.compile(
-    r"pstack-models\.mdc|generalPurpose|`readonly`|\.cursor/|Task tool|grok-|-xhigh|"
-    r"inherit-parent|cloud_base_branch|environment: \"cloud\"|AskQuestion"
+# Cursor names the upstream adapter maps, from TERMS in scripts/generate-pstack-harness-trees.mjs,
+# plus Cursor-isms it doesn't track. None may survive in the selected skills.
+TERMS = {
+    "Task": r"`Task`|\bTask (tool|subagent|call)",
+    "AskQuestion": r"AskQuestion",
+    "todolist": r"(?i:\btodo ?list\b)",
+    "generalPurpose": r"generalPurpose",
+    "poteto-agent": r"poteto-agent",
+    "comment-sicko": r"(?<!pstack:)comment-sicko",
+    "readonly": r"readonly: (true|false)|readonly/Ask|`readonly`",
+    "environment": r"environment: \"(cloud|local)\"",
+    "cloud_base_branch": r"cloud_base_branch",
+    "run_in_background": r"run_in_background",
+    "resume": r"`resume`",
+    "file_attachments": r"file_attachments",
+    "claude-": r"\bclaude-[a-z]+-\d",
+    "grok-": r"\bgrok-\d",
+    "gpt-": r"\bgpt-\d",
+    "inherit-parent": r"inherit-parent",
+    "pstack-models.mdc": r"pstack-models\.mdc",
+    ".cursor/skills/": r"\.cursor/skills",
+    "~/.cursor/plugins/": r"\.cursor/plugins|\.cursor-plugin",
+    ".cursor/rules/": r"\.cursor/rules|always-applied rule",
+    "agent-transcripts": r"agent-transcripts|\.cursor/projects",
+    "Cursor-only features": r"Bugbot|Cursor [Aa]utomation|cursor\.(sh|com)/automations|[Cc]loud [Aa]gent|built-in PR tool",
+    "Cursor": r"\bCursor\b|\.cursor/|mcps/|-xhigh|\bcreate-skill\b",
+    "poteto-mode": r"poteto-mode",
+}
+FORBIDDEN = re.compile("|".join(f"(?:{p})" for p in TERMS.values()))
+
+# (path relative to pstack/skills, substring): example quotes in prompts, not instructions.
+ALLOWED = (
+    ("reflect/references/synthesizer.md", "Bugbot flagged regex backtracking"),
+    ("reflect/references/synthesizer.md", "we renamed `gpt-4` to `gpt-4o`"),
 )
 
 
@@ -323,6 +385,11 @@ def apply(text: str, old: str | re.Pattern[str], new: str, expected: int, label:
     if count == 0 and (not new or new in text):
         return text  # already applied
     sys.exit(f"{label}: expected {expected} match(es), found {count}")
+
+
+def allowed(path: Path, line: str) -> bool:
+    rel = path.relative_to(SKILLS).as_posix() if path.is_relative_to(SKILLS) else ""
+    return any(rel == p and s in line for p, s in ALLOWED)
 
 
 def main() -> None:
@@ -346,7 +413,7 @@ def main() -> None:
     for skill in manifest["skills"]:
         for f in (ROOT / skill).rglob("*.md"):
             for n, line in enumerate(f.read_text().splitlines(), 1):
-                if FORBIDDEN.search(line):
+                if FORBIDDEN.search(line) and not allowed(f, line):
                     leftovers.append(f"{f.relative_to(ROOT)}:{n}: {line[:120]}")
     if leftovers:
         sys.exit("Cursor-isms left in selected skills:\n" + "\n".join(leftovers))

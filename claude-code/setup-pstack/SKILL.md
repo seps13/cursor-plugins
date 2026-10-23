@@ -1,12 +1,12 @@
 ---
 name: setup-pstack
-description: Configure which model and reasoning effort pstack uses per role. Writes ~/.claude/pstack-models.md, which the skills read instead of their defaults. Use for /setup-pstack, "configure pstack models", "pstack budget", or changing pstack's model choices.
+description: Configure which model and reasoning effort pstack uses per role. Writes ~/.claude/rules/pstack-models.md, which Claude Code loads into every session and the skills use instead of their defaults. Use for /setup-pstack, "configure pstack models", "pstack budget", or changing pstack's model choices.
 disable-model-invocation: true
 ---
 
 # Setup pstack
 
-Write `~/.claude/pstack-models.md`, the per-role model file that `how`, `why`, `reflect`, `arena`, `architect`, `interrogate`, and `swarm` read before spawning subagents.
+Write `~/.claude/rules/pstack-models.md`, the per-role model file that `how`, `why`, `reflect`, `arena`, `architect`, `interrogate`, and `swarm` use when spawning subagents. Claude Code loads every `.md` file in `~/.claude/rules/` into each new session, so the skills find the role lines in context.
 
 ## Values
 
@@ -23,7 +23,7 @@ Panel roles (`arena runners`, `architect runners`, `interrogate reviewers`) take
 
 ### 1. Load current state
 
-If `~/.claude/pstack-models.md` exists, read it and treat its `# budget` line and role values as the current choices. Otherwise start from the defaults in step 4. Drop any line whose role is not in step 4 and tell the user.
+If `~/.claude/rules/pstack-models.md` exists, read it. Otherwise read the old location, `~/.claude/pstack-models.md`, if it exists. Treat its `# budget` line and role values as the current choices. Otherwise start from the defaults in step 4. Drop any line whose role is not in step 4 and tell the user.
 
 ### 2. Ask for a budget
 
@@ -42,7 +42,7 @@ Show every role with its resulting value as a table. Ask whether to accept as-is
 
 ### 4. Write the file
 
-Overwrite the whole file so re-runs stay idempotent. Shape, with the defaults:
+Overwrite the whole file so re-runs stay idempotent. No frontmatter, so it applies to every session. Shape, with the defaults:
 
 ```
 # pstack model configuration. One line per role. Delete a line to fall back to the skill default.
@@ -63,4 +63,4 @@ swarm workers: sonnet/medium
 
 ### 5. Confirm
 
-Tell the user the file was written and that skills read it on their next run. Re-running this skill updates it.
+Tell the user the file was written and that it applies to new sessions. If `~/.claude/pstack-models.md` exists, tell the user nothing reads it anymore and offer to delete it. Re-running this skill updates the file.

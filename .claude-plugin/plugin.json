@@ -1,6 +1,6 @@
 {
   "name": "pstack",
-  "version": "0.15.15",
+  "version": "0.15.30",
   "description": "Selected pstack skills (Lauren Tan) plus deslop from cursor-team-kit, packaged for Claude Code from a fork of cursor/plugins.",
   "author": {
     "name": "Lauren Tan"
