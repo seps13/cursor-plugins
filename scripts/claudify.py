@@ -76,8 +76,17 @@ NEW_ROUTING = (
 )
 
 # Called by other skills (blast-radius, no-comments, architect, teach, recall, dev-workflow:prototype),
-# or wanted on demand (tdd).
-MODEL_INVOKED = ("how", "why", "unslop", "architect", "arena", "benchmark-checklist", "tdd")
+# wanted on demand (tdd), or loaded by a user rule (typescript-best-practices, via rules/typescript.md).
+MODEL_INVOKED = (
+    "how",
+    "why",
+    "unslop",
+    "architect",
+    "arena",
+    "benchmark-checklist",
+    "tdd",
+    "typescript-best-practices",
+)
 
 # (path relative to pstack/skills, old, new, expected count). Literal unless old is re.Pattern.
 EDITS: list[tuple[str, str | re.Pattern[str], str, int]] = [

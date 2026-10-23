@@ -28,6 +28,7 @@
     "./pstack/skills/show-me-your-work",
     "./pstack/skills/teach",
     "./pstack/skills/recall",
+    "./pstack/skills/typescript-best-practices",
     "./pstack/skills/principle-minimize-reader-load",
     "./pstack/skills/principle-guard-the-context-window",
     "./pstack/skills/principle-encode-lessons-in-structure",
